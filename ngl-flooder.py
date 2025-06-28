@@ -107,19 +107,15 @@ def feliy():
             break
         except ValueError:
             print("Invalid delay. Please enter a valid number (e.g., 2 or 0.5).")
-    while True:
-        workers_input = input("Number of concurrent workers (e.g., 10): ").strip()
-        try:
-            workers = int(workers_input.lstrip('0') or '1')
-            if workers < 1:
-                raise ValueError
-            break
-        except ValueError:
-            print("Invalid number. Please enter a positive integer.")
+
+    async def worker(client, t, m, agents, proxy, delay):
+        while True:
+            await send_message(client, t, m, agents, [proxy], delay)
 
     async def inm():
+        proxies = get_https_proxies()
         async with httpx.AsyncClient() as client:
-            tasks = [asyncio.create_task(send_message(client, t, m, agents, proxies, delay)) for _ in range(workers)]
+            tasks = [asyncio.create_task(worker(client, t, m, agents, proxy, delay)) for proxy in proxies]
             await asyncio.gather(*tasks)
 
     try:
