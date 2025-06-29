@@ -60,8 +60,8 @@ async def send_message(client, target, message, agents, proxies, delay=0):
     while True:
         try:
             if proxy:
-                transport = httpx.AsyncHTTPTransport(proxy=proxy_url)
-                async with httpx.AsyncClient(transport=transport) as proxy_client:
+                transport = httpx.AsyncHTTPTransport(proxy=proxy_url, verify=False)
+                async with httpx.AsyncClient(transport=transport, verify=False) as proxy_client:
                     response = await proxy_client.post("https://ngl.link/api/submit", headers=headers, data=payload)
             else:
                 response = await client.post("https://ngl.link/api/submit", headers=headers, data=payload)
@@ -71,14 +71,34 @@ async def send_message(client, target, message, agents, proxies, delay=0):
             elif response.status_code == 429:
                 print(f"[!] Failed - {response.status_code} (Too Many Requests). Retrying with longer delay...")
                 await asyncio.sleep(5 + random.uniform(0, 2)) 
+            elif response.status_code == 503:
+                print(f"[!] Failed - {response.status_code} (Service Unavailable)")
+                break
             else:
                 print(f"[!] Failed - {response.status_code}")
                 break
+        except httpx.HTTPError as e:
+            msg = str(e)
+            if 'CERTIFICATE_VERIFY_FAILED' in msg:
+                print("[!] SSL Error: CERTIFICATE_VERIFY_FAILED (certificate verify failed)")
+            elif not msg.strip():
+                print("[!] Error: (empty error message)")
+            else:
+                print(f"[!] Error: {msg}")
+            return False
         except Exception as e:
-            print(f"[!] Error: {e}")
-            break
+            msg = str(e)
+            if not msg.strip():
+                print("[!] Error: (empty error message)")
+            else:
+                print(f"[!] Error: {msg}")
+            return False
     if delay > 0:
         await asyncio.sleep(delay)
+    try:
+        return response.status_code == 200
+    except:
+        return False
 
 async def spam(target, message, agents, amount, delay=0):
     async with httpx.AsyncClient() as client:
@@ -108,9 +128,16 @@ def feliy():
         except ValueError:
             print("Invalid delay. Please enter a valid number (e.g., 2 or 0.5).")
 
+    success_count = 0
+    success_count_lock = asyncio.Lock()
+
     async def worker(client, t, m, agents, proxy, delay):
+        nonlocal success_count
         while True:
-            await send_message(client, t, m, agents, [proxy], delay)
+            result = await send_message(client, t, m, agents, [proxy], delay)
+            if result:
+                async with success_count_lock:
+                    success_count += 1
 
     async def inm():
         proxies = get_https_proxies()
@@ -121,7 +148,7 @@ def feliy():
     try:
         asyncio.run(inm())
     except KeyboardInterrupt:
-        print("\n[!] Stopped by user.")
+        print(f"\n[!] Stopped by user. Sent successful: {success_count}")
 
 if __name__ == '__main__':
     clear()
