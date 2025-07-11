@@ -2,3 +2,5 @@ httpx
 requests
 httpx
 uuid
+fade
+rich
