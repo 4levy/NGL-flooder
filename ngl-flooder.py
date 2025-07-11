@@ -4,20 +4,36 @@ import httpx
 import uuid
 import random
 import asyncio
+import fade
+from rich import print
+from rich.console import Console
+from rich.panel import Panel
+from rich.prompt import Prompt
+from rich.text import Text
+from rich.progress import Progress, SpinnerColumn, BarColumn, TextColumn
 
 
 # CONFIG
-BANNER = """
+BANNER = f"""
            _             __        __        __              
  _      __(_)___  ____ _/ /_____ _/ /_____  / /__  __________
 | | /| / / / __ \/ __ `/ __/ __ `/ //_/ _ \/ / _ \/ ___/ ___/
 | |/ |/ / / / / / /_/ / /_/ /_/ / ,< /  __/ /  __(__  |__  ) 
 |__/|__/_/_/ /_/\__, /\__/\__,_/_/|_|\___/_/\___/____/____/  
                /____/                                         
+               
 """
+
+# value
+console = Console()
 
 def clear():
     os.system('cls' if os.name == 'nt' else 'clear')
+
+def title():
+    os.system('title NGL Flooder - By 4levy') if os.name == 'nt' else None
+    
+
 
 def user_agents():
     try:
@@ -106,27 +122,29 @@ async def spam(target, message, agents, amount, delay=0):
             await send_message(client, target, message, agents, delay)
 
 def feliy():
+    title()
     agents = user_agents()
     if not agents:
-        print("Failed to load user agents. Exiting.")
+        console.print("[red]❌ Failed to load user agents. Exiting.[/red]")
         return
+
     proxies = get_https_proxies()
     if not proxies:
-        print("Failed to load HTTPS proxies. Continuing without proxies.")
+        console.print("[yellow]⚠️ Failed to load HTTPS proxies. Continuing without proxies.[/yellow]")
+    print(f"{BANNER}")
+    console.print(f"[green] Loaded {len(agents)} user agents[/green]")
+    console.print(f"[green] Loaded {len(proxies)} HTTPS proxies[/green]\n")
 
-    print(BANNER)
-    print(f"\nLoaded {len(agents)} user agents\n")
-    print(f"Loaded {len(proxies)} HTTPS proxies\n")
+    t = Prompt.ask("[bold cyan] (?) [/bold cyan] Username ")
+    m = Prompt.ask("[bold cyan] (?) [/bold cyan] Enter message to send")
 
-    t = input("Username target: ")
-    m = input("Message: ")
     while True:
-        delay_input = input("Delay between requests (seconds): ").strip()
+        delay_input = Prompt.ask("[bold cyan] (?) [/bold cyan] Delay between requests (seconds)", default="1")
         try:
             delay = float(delay_input.lstrip('0') or '0')
             break
         except ValueError:
-            print("Invalid delay. Please enter a valid number (e.g., 2 or 0.5).")
+            console.print("[red]❌ Invalid delay. Please enter a valid number (e.g., 2 or 0.5).[/red]")
 
     success_count = 0
     success_count_lock = asyncio.Lock()
@@ -148,7 +166,8 @@ def feliy():
     try:
         asyncio.run(inm())
     except KeyboardInterrupt:
-        print(f"\n[!] Stopped by user. Sent successful: {success_count}")
+        console.print(f"\n[bold red]⛔ Interrupted by user.[/bold red] Successfully sent: [green]{success_count}[/green]")
+
 
 if __name__ == '__main__':
     clear()
