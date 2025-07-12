@@ -121,6 +121,18 @@ async def spam(target, message, agents, amount, delay=0):
         for _ in range(amount):
             await send_message(client, target, message, agents, delay)
 
+async def check_ngl_user(username: str) -> bool:
+    url = f"https://ngl.link/{username}"
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(url)
+            if "Could not find user" in response.text or response.status_code == 404:
+                return False
+            return True
+    except Exception as e:
+        console.print(f"[red]❌ Error checking username: {e}[/red]")
+        return False
+
 def feliy():
     title()
     agents = user_agents()
@@ -135,7 +147,13 @@ def feliy():
     console.print(f"[green] Loaded {len(agents)} user agents[/green]")
     console.print(f"[green] Loaded {len(proxies)} HTTPS proxies[/green]\n")
 
-    t = Prompt.ask("[bold cyan] (?) [/bold cyan] Username ")
+    while True:
+        t = Prompt.ask("[bold cyan] (?) [/bold cyan] Username")
+        if asyncio.run(check_ngl_user(t)):
+            break
+        else:
+            console.print("[red]❌ Could not find user. Please enter a valid NGL username.[/red]")
+
     m = Prompt.ask("[bold cyan] (?) [/bold cyan] Enter message to send")
 
     while True:
@@ -167,7 +185,6 @@ def feliy():
         asyncio.run(inm())
     except KeyboardInterrupt:
         console.print(f"\n[bold red]⛔ Interrupted by user.[/bold red] Successfully sent: [green]{success_count}[/green]")
-
 
 if __name__ == '__main__':
     clear()
