@@ -47,7 +47,7 @@ def user_agents():
 
 def get_https_proxies():
     try:
-        url = "https://raw.githubusercontent.com/4levy/NGL-flooder/refs/heads/main/proxies_checked.txt"
+        url = "https://4levy-proxy-list.vercel.app/api/proxies/raw"
         response = requests.get(url)
         response.raise_for_status()
         proxies = [line.strip() for line in response.text.splitlines() if line.strip()]
